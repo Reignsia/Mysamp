@@ -68,7 +68,10 @@ fi
 (crontab -l ; echo "0 */2 * * * sync && sudo sysctl -w vm.drop_caches=3") | crontab -
 # Clean up
 rm "ogp-panel-latest.deb" "ogp-agent-latest.deb"
-
+cd /var/www/html/themes/
+git clone https://github.com/hmrserver/Obsidian.git
+mv Obsidian/themes/Obsidian/* Obsidian/
+rmdir Obsidian/themes/Obsidian
 # Display credentials
 echo "Open Game Panel has been installed. You can access it through your web browser."
 
