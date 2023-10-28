@@ -69,7 +69,7 @@ cd /var/www/html/themes/
 git clone https://github.com/hmrserver/Obsidian.git
 mv Obsidian/themes/Obsidian/* Obsidian/
 rmdir Obsidian/themes/Obsidian
-
+sudo mysql_secure_installation
 # Display credentials
 echo "Open Game Panel has been installed. You can access it through your web browser."
 
