@@ -52,9 +52,10 @@ dpkg -i "ogp-agent-latest.deb"
 
 if [ -f "$config_file" ]; then
     if grep -q "$config_line" "$config_file"; then
-    else
-        sed -i "\$a$config_line" "$config_file"
-    fi
+    
+else
+    sed -i "\$a$config_line" "$config_file"
+fi
 else
     echo "File $config_file does not exist."
 fi
