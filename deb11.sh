@@ -47,13 +47,9 @@ apt-get install -y libstdc++6:i386
 wget -N "https://github.com/OpenGamePanel/Easy-Installers/raw/master/Linux/Debian-Ubuntu/ogp-agent-latest.deb" -O "ogp-agent-latest.deb"
 dpkg -i "ogp-agent-latest.deb"
 
-if [ -f "$config_file" ]; then
-    if grep -q "$config_line" "$config_file"; then
-        # Do nothing, as the line already exists
-    else
-        sed -i "\$a$config_line" "$config_file"
-    fi
-else
+if [ -f "$config_file" ] && ! grep -q "$config_line" "$config_file"; then
+    sed -i "\$a$config_line" "$config_file"
+elif [ ! -f "$config_file" ]; then
     echo "File $config_file does not exist."
 fi
 
