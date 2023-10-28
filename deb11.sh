@@ -19,15 +19,12 @@ apt-get update
 apt-get install -y apache2 curl subversion php7.4 php7.4-gd php7.4-zip libapache2-mod-php7.4 php7.4-curl php7.4-mysql php7.4-xmlrpc php-pear mariadb-server php7.4-mbstring git php-bcmath
 
 # Configure MariaDB bind-address
-read -p "Enter the MariaDB bind address (default: 0.0.0.0): " db_bind_address
-db_bind_address="${db_bind_address:-0.0.0.0}"
-sed -i "s/^bind-address.*/bind-address=$db_bind_address/g" "/etc/mysql/mariadb.conf.d/50-server.cnf"
+
+sed -i "s/^bind-address.*/bind-address=0.0.0.0/g" "/etc/mysql/mariadb.conf.d/50-server.cnf"
 
 # Install phpMyAdmin
-read -p "Do you want to install phpMyAdmin? (y/n): " install_phpmyadmin
-if [ "$install_phpmyadmin" = "y" ]; then
-    apt-get install -y phpmyadmin
-fi
+apt-get install -y phpmyadmin
+
 
 # Download and install OGP panel
 wget -N "https://github.com/OpenGamePanel/Easy-Installers/raw/master/Linux/Debian-Ubuntu/ogp-panel-latest.deb" -O "ogp-panel-latest.deb"
@@ -52,13 +49,14 @@ dpkg -i "ogp-agent-latest.deb"
 
 if [ -f "$config_file" ]; then
     if grep -q "$config_line" "$config_file"; then
-    
-else
-    sed -i "\$a$config_line" "$config_file"
-fi
+        # Do nothing, as the line already exists
+    else
+        sed -i "\$a$config_line" "$config_file"
+    fi
 else
     echo "File $config_file does not exist."
 fi
+
 if [ -f "$php_ini_file" ]; then
     sed -i "s/upload_max_filesize = .*/upload_max_filesize = $new_upload_max_filesize/g" "$php_ini_file"
     sed -i "s/post_max_size = .*/post_max_size = $new_post_max_size/g" "$php_ini_file"
@@ -66,13 +64,16 @@ if [ -f "$php_ini_file" ]; then
 else
     echo "File $php_ini_file does not exist."
 fi
+
 (crontab -l ; echo "0 */2 * * * sync && sudo sysctl -w vm.drop_caches=3") | crontab -
+
 # Clean up
 rm "ogp-panel-latest.deb" "ogp-agent-latest.deb"
 cd /var/www/html/themes/
 git clone https://github.com/hmrserver/Obsidian.git
 mv Obsidian/themes/Obsidian/* Obsidian/
 rmdir Obsidian/themes/Obsidian
+
 # Display credentials
 echo "Open Game Panel has been installed. You can access it through your web browser."
 
