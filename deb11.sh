@@ -84,6 +84,12 @@ EOL'
 sudo systemctl restart fail2ban
 sudo systemctl enable fail2ban
 
+sudo apt update
+sudo apt install ufw
+sudo ufw enable
+sudo ufw allow proto udp from any to any
+sudo ufw allow proto tcp from any to any
+
 # Display credentials
 sudo cat /root/ogp_user_password
 sudo cat /root/ogp_panel_mysql_info
