@@ -1,30 +1,14 @@
 #!/bin/bash
 
-# This script installs Open Game Panel on Debian 11.
-
-# Check for root privileges
-if [ "$EUID" -ne 0 ]; then
-    echo "Please run this script as root."
-    exit 1
-fi
-
-config_line="Alias /phpmyadmin /usr/share/phpmyadmin"
-config_file="/etc/apache2/sites-available/000-default.conf"
-new_upload_max_filesize="100M"
-new_post_max_size="100M"
-php_ini_file="/etc/php/7.4/apache2/php.ini"
-
 # Install necessary packages
 apt-get update
 apt-get install -y apache2 curl subversion php7.4 php7.4-gd php7.4-zip libapache2-mod-php7.4 php7.4-curl php7.4-mysql php7.4-xmlrpc php-pear mariadb-server php7.4-mbstring git php-bcmath
 
 # Configure MariaDB bind-address
-
 sed -i "s/^bind-address.*/bind-address=0.0.0.0/g" "/etc/mysql/mariadb.conf.d/50-server.cnf"
 
 # Install phpMyAdmin
 apt-get install -y phpmyadmin
-
 
 # Download and install OGP panel
 wget -N "https://github.com/OpenGamePanel/Easy-Installers/raw/master/Linux/Debian-Ubuntu/ogp-panel-latest.deb" -O "ogp-panel-latest.deb"
@@ -47,36 +31,58 @@ apt-get install -y libstdc++6:i386
 wget -N "https://github.com/OpenGamePanel/Easy-Installers/raw/master/Linux/Debian-Ubuntu/ogp-agent-latest.deb" -O "ogp-agent-latest.deb"
 dpkg -i "ogp-agent-latest.deb"
 
-if [ -f "$config_file" ] && ! grep -q "$config_line" "$config_file"; then
-    sed -i "\$a$config_line" "$config_file"
-elif [ ! -f "$config_file" ]; then
-    echo "File $config_file does not exist."
-fi
+# Configure PHP settings
+sudo sed -i 's/^post_max_size = 8M/post_max_size = 900M/' /etc/php/7.4/apache2/php.ini
+sudo sed -i 's/^upload_max_filesize = 2M/upload_max_filesize = 900M/' /etc/php/7.4/apache2/php.ini
 
-if [ -f "$php_ini_file" ]; then
-    sed -i "s/upload_max_filesize = .*/upload_max_filesize = $new_upload_max_filesize/g" "$php_ini_file"
-    sed -i "s/post_max_size = .*/post_max_size = $new_post_max_size/g" "$php_ini_file"
-    echo "Configuration values updated in $php_ini_file."
-else
-    echo "File $php_ini_file does not exist."
-fi
+# Configure Apache for phpMyAdmin
+sudo sed -i '$a Alias /phpmyadmin /usr/share/phpmyadmin' /etc/apache2/sites-available/000-default.conf
 
-(crontab -l ; echo "0 */2 * * * sync && sudo sysctl -w vm.drop_caches=3") | crontab -
+# Set up cron job for cache dropping
+(crontab -l 2>/dev/null; echo "0 * * * * echo 3 > /proc/sys/vm/drop_caches") | crontab -
 
-# Clean up
-rm "ogp-panel-latest.deb" "ogp-agent-latest.deb"
+# Clone and configure theme for OGP
 cd /var/www/html/themes/
 git clone https://github.com/hmrserver/Obsidian.git
 mv Obsidian/themes/Obsidian/* Obsidian/
 rmdir Obsidian/themes/Obsidian
+
+# Secure MariaDB installation
 sudo mysql_secure_installation
+
+# Enable and restart services
 sudo systemctl restart apache2
 sudo systemctl enable apache2
 sudo systemctl enable ogp_agent
 sudo systemctl enable mariadb
 sudo systemctl enable mysql
-# Display credentials
-echo "Open Game Panel has been installed. You can access it through your web browser."
+
+# Install and configure fail2ban
+sudo apt update
+sudo apt install fail2ban -y
+sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+sudo cp /etc/fail2ban/jail.local /etc/fail2ban/jail.local.bak
+
+# Configure fail2ban jail.local
+sudo sed -i '$a [DEFAULT]\nbantime = 600\nmaxretry = 50\nfindtime = 600\n' /etc/fail2ban/jail.local
+sudo sed -i '$a [tcp-iptables]\nenabled = true\nfilter = tcp-iptables\naction = iptables[name=TCP, port=all, protocol=tcp]\nlogpath = /var/log/auth.log\n' /etc/fail2ban/jail.local
+sudo sed -i '$a [udp-iptables]\nenabled = true\nfilter = udp-iptables\naction = iptables[name=UDP, port=all, protocol=udp]\nlogpath = /var/log/auth.log\n' /etc/fail2ban/jail.local
+
+# Create fail2ban filters
+sudo bash -c 'cat > /etc/fail2ban/filter.d/tcp-iptables.conf <<EOL
+[Definition]
+failregex = .*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*
+ignoreregex =
+EOL'
+
+sudo bash -c 'cat > /etc/fail2ban/filter.d/udp-iptables.conf <<EOL
+[Definition]
+failregex = .*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*:.*
+ignoreregex =
+EOL'
+
+sudo systemctl restart fail2ban
+sudo systemctl enable fail2ban
 
 # Display credentials
 sudo cat /root/ogp_user_password
